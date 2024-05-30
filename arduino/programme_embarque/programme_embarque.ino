@@ -313,3 +313,30 @@ void update_motor_input() {
       client.write(bytes[i]);
     }
 }
+
+// Function to power a motor based on the input value
+void power_motor(int motor_id, int32_t input_value) {
+ if(input_value > 0) {
+   ledcWrite(motor_id * 2, input_value);
+   ledcWrite(motor_id * 2 + 1, 0);
+ } else {
+   ledcWrite(motor_id * 2, 0);
+   ledcWrite(motor_id * 2 + 1, -input_value);
+ }
+}
+
+// Function to read a specified number of bytes from the client
+void read_bytes(char* buffer, uint32_t n) {
+   for(uint32_t i = 0; i < n; i++) {
+     buffer[i] = client.read();
+   }
+}
+
+// Function to write a specified number of bytes to the client
+void write_bytes(char* bytes, uint32_t n) {
+   for(uint32_t i = 0; i < n; i++) {
+     client.write(bytes[i]);
+   }
+}
+
+
