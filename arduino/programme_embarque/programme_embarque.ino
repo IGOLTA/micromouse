@@ -149,7 +149,6 @@ void acq() {
   if(acq_progress >= sample_count) {
     in_acq = false;
     Serial.println("Acq finished. Sending data");
-    power_motor(0, 0);
     write_bytes(send_buffer, sample_count * motors_amount * acq_block_size * sizeof(float));
     integral_error[0] = 0;
     integral_error[1] = 0;
@@ -286,30 +285,54 @@ void handle_request() {
 
 // Function to update motor inputs using feedback control
 void update_motor_input() {
-  for(int motor_id = 0; motor_id < motors_amount; motor_id++) {
-    float delta_time = (float)status.feedback_loop_delay / 1000000.0f;
-    
-    // Get motor speed
-    motor_speed[motor_id] = -feedback_gain * 2.0f * 3.1415f * (float)(encoders[motor_id].getCount()) / (delta_time * (float)(incs_per_rotation));
-    encoders[motor_id].clearCount();
+   for(int motor_id = 0; motor_id < motors_amount; motor_id++) {
+      float delta_time = (float)status.feedback_loop_delay / 1000000.0f;
+      
+      // Get motor speed
+      motor_speed[motor_id] = -feedback_gain * 2.0f * 3.1415f * (float)(encoders[motor_id].getCount()) / (delta_time * (float)(incs_per_rotation));
+      encoders[motor_id].clearCount();
+  
+      // Compute error, derivative, and integral
+      float err = motor_req_speed[motor_id] - motor_speed[motor_id] * status.feedback_enabled;
+      float der = (err - last_error[motor_id])/delta_time;
+      last_error[motor_id] = err;
+      integral_error[motor_id] += err/delta_time;
+  
+      // Calculate motor input using PID control
+      current_input[motor_id]  = (status.kp * err + status.kd * der + status.ki * integral_error[motor_id]);
+      
+  
+      // Clamp motor input within the allowed range
+      if( current_input[motor_id] < -max_pwm)     current_input[motor_id]  = -max_pwm;
+      if( current_input[motor_id] > max_pwm)     current_input[motor_id]  = max_pwm;
 
-    // Compute error, derivative, and integral
-    float err = motor_req_speed[motor_id] - motor_speed[motor_id] * status.feedback_enabled;
-    float der = (err - last_error[motor_id])/delta_time;
-    last_error[motor_id] = err;
-    integral_error[motor_id] += err/delta_time;
+      // Power the motor
+      power_motor(motor_id,     current_input[motor_id] );
+ }
+}
 
-    // Calculate motor input using PID control
-    current_input[motor_id]  = (status.kp * err + status.kd * der + status.ki * integral_error[motor_id]);
-    
 
-    // Clamp motor input within the allowed range
-    if( current_input[motor_id] < -max_pwm)     current_input[motor_id]  = -max_pwm;
-    if( current_input[motor_id] > max_pwm)     current_input[motor_id]  = max_pwm;
+// Function to power a motor based on the input value
+void power_motor(int motor_id, int32_t input_value) {
+ if(input_value > 0) {
+   ledcWrite(motor_id * 2, input_value);
+   ledcWrite(motor_id * 2 + 1, 0);
+ } else {
+   ledcWrite(motor_id * 2, 0);
+   ledcWrite(motor_id * 2 + 1, -input_value);
+ }
+}
 
-    // Power the motor
+// Function to read a specified number of bytes from the client
+void read_bytes(char* buffer, uint32_t n) {
+   for(uint32_t i = 0; i < n; i++) {
+     buffer[i] = client.read();
+   }
+}
 
-    for(uint32_t i = 0; i < n; i++) {
-      client.write(bytes[i]);
-    }
+// Function to write a specified number of bytes to the client
+void write_bytes(char* bytes, uint32_t n) {
+   for(uint32_t i = 0; i < n; i++) {
+     client.write(bytes[i]);
+   }
 }
