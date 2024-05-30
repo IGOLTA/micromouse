@@ -25,8 +25,8 @@ const int encoder_A[] = {4, 13};
 const int encoder_B[] = {5, 14};
 
 // Motor pin configurations
-const int motor_P[] = {23, 18};
-const int motor_N[] = {25, 19};
+const int motor_P[] = {25, 18};
+const int motor_N[] = {23, 19};
 
 // PWM settings
 const int pwm_freq = 1000;
